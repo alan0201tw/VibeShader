@@ -14,7 +14,7 @@ namespace {
 
 constexpr int kWindowWidth = 1280;
 constexpr int kWindowHeight = 720;
-constexpr const char* kWindowTitle = "Playground — Vulkan + GLSL";
+constexpr const char* kWindowTitle = "Playground — Real-Time Ray Tracer";
 
 }  // namespace
 
@@ -57,7 +57,7 @@ int main() {
 
   auto pipeline_result = graphics::Pipeline::Create(
       context, swapchain, SHADER_DIR "/fullscreen.vert.spv",
-      SHADER_DIR "/fullscreen.frag.spv");
+      SHADER_DIR "/raytracer.frag.spv");
   if (!pipeline_result) {
     std::println(stderr, "Pipeline creation failed: {}",
                  pipeline_result.error());
@@ -99,7 +99,7 @@ int main() {
 
     auto new_pipeline_result = graphics::Pipeline::Create(
         context, *new_swapchain_result, SHADER_DIR "/fullscreen.vert.spv",
-        SHADER_DIR "/fullscreen.frag.spv");
+        SHADER_DIR "/raytracer.frag.spv");
     if (!new_pipeline_result) {
       std::println(stderr, "Pipeline recreation failed: {}",
                    new_pipeline_result.error());
