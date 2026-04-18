@@ -1,0 +1,23 @@
+# Build output
+build/
+out/
+cmake-build-*/
+
+# IDE / editor
+.vs/
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Compiled shaders
+*.spv
+
+# OS junk
+Thumbs.db
+.DS_Store
+
+# Dependency caches
+_deps/
+vcpkg_installed/
