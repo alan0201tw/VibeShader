@@ -17,7 +17,9 @@ layout(push_constant) uniform PushConstants {
   float time;
   float aspect;
   int triangle_count;
-  int _pad;
+  int _pad0;
+  vec4 camera_position;
+  vec4 camera_forward;
 } pc;
 
 struct MeshTriangle {
@@ -363,12 +365,12 @@ void main() {
 
   vec2 uv = frag_uv * 2.0 - 1.0;
   uv.x *= pc.aspect;
+  uv.y = -uv.y;
 
   const float kFov = 0.72;
-  vec3 cam_pos = vec3(0.0, 0.55, 5.4);
-  vec3 cam_target = vec3(0.0, 0.15, 0.0);
-  vec3 cam_fwd = normalize(cam_target - cam_pos);
-  vec3 cam_right = normalize(cross(cam_fwd, vec3(0.0, -1.0, 0.0)));
+  vec3 cam_pos = pc.camera_position.xyz;
+  vec3 cam_fwd = normalize(pc.camera_forward.xyz);
+  vec3 cam_right = normalize(cross(cam_fwd, vec3(0.0, 1.0, 0.0)));
   vec3 cam_up = cross(cam_right, cam_fwd);
 
   Ray ray;

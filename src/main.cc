@@ -6,6 +6,7 @@
 #include "graphics/buffer_util.h"
 
 #include <algorithm>
+#include <cmath>
 #include <span>
 
 #include <chrono>
@@ -14,12 +15,16 @@
 #include <print>
 
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 namespace {
 
 constexpr int kWindowWidth = 1280;
 constexpr int kWindowHeight = 720;
 constexpr const char* kWindowTitle = "Playground — Real-Time Ray Tracer";
+
+constexpr float kCameraMoveSpeed = 3.0f;
+constexpr float kCameraTurnSpeed = 1.6f;
 
 }  // namespace
 
@@ -219,6 +224,13 @@ int main() {
 
   // Record current time for delta calculation
   auto start_time = std::chrono::high_resolution_clock::now();
+  auto last_frame_time = start_time;
+
+  auto camera_position = glm::vec3(0.0f, 0.55f, 5.4f);
+  const auto initial_target = glm::vec3(0.0f, 0.15f, 0.0f);
+  const auto initial_forward = glm::normalize(initial_target - camera_position);
+  auto camera_yaw = std::atan2(initial_forward.z, initial_forward.x);
+  auto camera_pitch = std::asin(initial_forward.y);
 
   // ── Main loop ───────────────────────────────────────────────────────────
   while (!glfwWindowShouldClose(window)) {
@@ -232,6 +244,55 @@ int main() {
     auto current_time = std::chrono::high_resolution_clock::now();
     auto elapsed_seconds =
         std::chrono::duration<float>(current_time - start_time).count();
+    auto delta_seconds =
+        std::chrono::duration<float>(current_time - last_frame_time).count();
+    last_frame_time = current_time;
+
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+      camera_yaw -= kCameraTurnSpeed * delta_seconds;
+    }
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+      camera_yaw += kCameraTurnSpeed * delta_seconds;
+    }
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+      camera_pitch += kCameraTurnSpeed * delta_seconds;
+    }
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+      camera_pitch -= kCameraTurnSpeed * delta_seconds;
+    }
+
+    camera_pitch = std::clamp(camera_pitch, -1.3f, 1.3f);
+
+    auto camera_forward = glm::normalize(glm::vec3(
+        std::cos(camera_pitch) * std::cos(camera_yaw),
+        std::sin(camera_pitch),
+        std::cos(camera_pitch) * std::sin(camera_yaw)));
+    auto camera_right = glm::normalize(
+        glm::cross(camera_forward, glm::vec3(0.0f, 1.0f, 0.0f)));
+    auto flat_forward = glm::vec3(camera_forward.x, 0.0f, camera_forward.z);
+    if (glm::dot(flat_forward, flat_forward) > 1e-6f) {
+      flat_forward = glm::normalize(flat_forward);
+    }
+
+    auto move_delta = kCameraMoveSpeed * delta_seconds;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+      camera_position += flat_forward * move_delta;
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+      camera_position -= flat_forward * move_delta;
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+      camera_position -= camera_right * move_delta;
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+      camera_position += camera_right * move_delta;
+    }
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+      camera_position.y += move_delta;
+    }
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
+      camera_position.y -= move_delta;
+    }
 
     // Calculate aspect ratio for screen coordinates in shader
     auto aspect_ratio =
@@ -258,12 +319,16 @@ int main() {
       float time;
       float aspect;
       int triangle_count;
-      int _pad = 0;
+      int _pad0 = 0;
+      glm::vec4 camera_position;
+      glm::vec4 camera_forward;
     } pc;
     pc.time = elapsed_seconds;
     pc.aspect = aspect_ratio;
     pc.triangle_count = static_cast<int>(mesh_tris.size());
-    pc._pad = 0;
+    pc._pad0 = 0;
+    pc.camera_position = glm::vec4(camera_position, 0.0f);
+    pc.camera_forward = glm::vec4(camera_forward, 0.0f);
 
     renderer.RecordRenderPass(pipeline, image_index, &pc, sizeof(pc), mesh_descriptor_set);
 
