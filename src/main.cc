@@ -2,6 +2,9 @@
 #include "graphics/pipeline.h"
 #include "graphics/renderer.h"
 #include "graphics/swapchain.h"
+#include "graphics/mesh_loader.h"
+#include "graphics/buffer_util.h"
+#include <span>
 
 #include <chrono>
 #include <cstdlib>
@@ -55,6 +58,47 @@ int main() {
   }
   auto& swapchain = *swapchain_result;
 
+  // ── Load mesh and upload to GPU ───────────────────────────────────────
+
+  std::vector<graphics::MeshTriangle> mesh_tris = graphics::LoadMeshFromObj("assets/teapot.obj");
+  if (mesh_tris.empty()) {
+    std::println(stderr, "Failed to load mesh or mesh is empty");
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return EXIT_FAILURE;
+  }
+
+  // --- Normalize and center mesh ---
+  glm::vec3 min_v(1e30f), max_v(-1e30f);
+  for (const auto& tri : mesh_tris) {
+    for (const glm::vec3& v : {tri.v0, tri.v1, tri.v2}) {
+      min_v = glm::min(min_v, v);
+      max_v = glm::max(max_v, v);
+    }
+  }
+  glm::vec3 center = 0.5f * (min_v + max_v);
+  glm::vec3 extent = max_v - min_v;
+  float max_extent = std::max({extent.x, extent.y, extent.z});
+  float scale = 2.0f / max_extent; // fit in [-1,1]
+  for (auto& tri : mesh_tris) {
+    tri.v0 = (tri.v0 - center) * scale;
+    tri.v1 = (tri.v1 - center) * scale;
+    tri.v2 = (tri.v2 - center) * scale;
+  }
+
+  auto mesh_buffer_result = graphics::CreateDeviceBuffer(
+      context.PhysicalDevice(), context.Device(),
+      std::as_bytes(std::span(mesh_tris)),
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+  if (!mesh_buffer_result) {
+    std::println(stderr, "Failed to create mesh buffer: {}", mesh_buffer_result.error());
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return EXIT_FAILURE;
+  }
+  VkBuffer mesh_buffer = mesh_buffer_result->first;
+  VkDeviceMemory mesh_memory = mesh_buffer_result->second;
+
   auto pipeline_result = graphics::Pipeline::Create(
       context, swapchain, SHADER_DIR "/fullscreen.vert.spv",
       SHADER_DIR "/raytracer.frag.spv");
@@ -77,6 +121,54 @@ int main() {
     return EXIT_FAILURE;
   }
   auto& renderer = *renderer_result;
+
+  // ── Descriptor pool and set for mesh buffer ──────────────────────────
+  VkDescriptorPoolSize pool_size{};
+  pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  pool_size.descriptorCount = 1;
+
+  VkDescriptorPoolCreateInfo pool_info{};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.maxSets = 1;
+  pool_info.poolSizeCount = 1;
+  pool_info.pPoolSizes = &pool_size;
+  VkDescriptorPool descriptor_pool;
+  if (vkCreateDescriptorPool(context.Device(), &pool_info, nullptr, &descriptor_pool) != VK_SUCCESS) {
+    std::println(stderr, "Failed to create descriptor pool");
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return EXIT_FAILURE;
+  }
+
+  VkDescriptorSetAllocateInfo alloc_info{};
+  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  alloc_info.descriptorPool = descriptor_pool;
+  alloc_info.descriptorSetCount = 1;
+  const auto& layout = pipeline.DescriptorSetLayout();
+  alloc_info.pSetLayouts = &layout;
+
+  VkDescriptorSet mesh_descriptor_set;
+  if (vkAllocateDescriptorSets(context.Device(), &alloc_info, &mesh_descriptor_set) != VK_SUCCESS) {
+    std::println(stderr, "Failed to allocate descriptor set");
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return EXIT_FAILURE;
+  }
+
+  VkDescriptorBufferInfo buffer_info{};
+  buffer_info.buffer = mesh_buffer;
+  buffer_info.offset = 0;
+  buffer_info.range = mesh_tris.size() * sizeof(graphics::MeshTriangle);
+
+  VkWriteDescriptorSet write{};
+  write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  write.dstSet = mesh_descriptor_set;
+  write.dstBinding = 0;
+  write.dstArrayElement = 0;
+  write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  write.descriptorCount = 1;
+  write.pBufferInfo = &buffer_info;
+  vkUpdateDescriptorSets(context.Device(), 1, &write, 0, nullptr);
 
   auto recreate_swapchain_resources = [&]() -> bool {
     int framebuffer_width = 0;
@@ -158,8 +250,19 @@ int main() {
     }
     uint32_t image_index = *image_idx_result;
 
-    renderer.RecordRenderPass(pipeline, image_index, elapsed_seconds,
-                              aspect_ratio);
+    // Pass triangle count as push constant (time, aspect, triangle_count)
+    struct PushConstants {
+      float time;
+      float aspect;
+      int triangle_count;
+      int _pad = 0;
+    } pc;
+    pc.time = elapsed_seconds;
+    pc.aspect = aspect_ratio;
+    pc.triangle_count = static_cast<int>(mesh_tris.size());
+    pc._pad = 0;
+
+    renderer.RecordRenderPass(pipeline, image_index, &pc, sizeof(pc), mesh_descriptor_set);
 
     auto present_result = renderer.EndFrameAndPresent(image_index);
     if (!present_result) {
@@ -176,6 +279,10 @@ int main() {
 
   // Wait for GPU to finish before cleanup
   context.WaitIdle();
+
+  // Cleanup mesh buffer
+  vkDestroyBuffer(context.Device(), mesh_buffer, nullptr);
+  vkFreeMemory(context.Device(), mesh_memory, nullptr);
 
   glfwDestroyWindow(window);
   glfwTerminate();

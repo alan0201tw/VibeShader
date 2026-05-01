@@ -257,6 +257,70 @@ void Renderer::RecordRenderPass(const Pipeline& pipeline,
   vkEndCommandBuffer(cmd);
 }
 
+void Renderer::RecordRenderPass(const Pipeline& pipeline,
+                                uint32_t image_index,
+                                const void* push_constants, size_t push_constant_size,
+                                VkDescriptorSet mesh_descriptor_set) {
+  VkCommandBuffer cmd = command_buffers_[image_index];
+
+  // Begin recording
+  VkCommandBufferBeginInfo begin_info{};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  vkBeginCommandBuffer(cmd, &begin_info);
+
+  // ── Render pass ─────────────────────────────────────────────────────────
+  VkClearValue clear_color{};
+  clear_color.color.float32[0] = 0.0f;
+  clear_color.color.float32[1] = 0.0f;
+  clear_color.color.float32[2] = 0.0f;
+  clear_color.color.float32[3] = 1.0f;
+
+  VkRenderPassBeginInfo render_pass_begin{};
+  render_pass_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  render_pass_begin.renderPass = pipeline.RenderPass();
+  render_pass_begin.framebuffer = pipeline.Framebuffers()[image_index];
+  render_pass_begin.renderArea.offset = {0, 0};
+  render_pass_begin.renderArea.extent = swapchain_extent_;
+  render_pass_begin.clearValueCount = 1;
+  render_pass_begin.pClearValues = &clear_color;
+
+  vkCmdBeginRenderPass(cmd, &render_pass_begin,
+                       VK_SUBPASS_CONTENTS_INLINE);
+
+  // ── Bind pipeline and set push constants ───────────────────────────────
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.Handle());
+
+  // ── Bind mesh descriptor set ───────────────────────────────────────────
+  vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.Layout(), 0, 1, &mesh_descriptor_set, 0, nullptr);
+
+  // ── Set dynamic viewport and scissor ────────────────────────────────────
+  VkViewport viewport{};
+  viewport.x = 0.0f;
+  viewport.y = 0.0f;
+  viewport.width = static_cast<float>(swapchain_extent_.width);
+  viewport.height = static_cast<float>(swapchain_extent_.height);
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
+  vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+  VkRect2D scissor{};
+  scissor.offset = {0, 0};
+  scissor.extent = swapchain_extent_;
+  vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+  vkCmdPushConstants(cmd, pipeline.Layout(),
+                     VK_SHADER_STAGE_VERTEX_BIT |
+                         VK_SHADER_STAGE_FRAGMENT_BIT,
+                     0, static_cast<uint32_t>(push_constant_size), push_constants);
+
+  // ── Draw fullscreen triangle (3 vertices) ───────────────────────────────
+  vkCmdDraw(cmd, 3, 1, 0, 0);
+
+  vkCmdEndRenderPass(cmd);
+  vkEndCommandBuffer(cmd);
+}
+
 auto Renderer::EndFrameAndPresent(uint32_t image_index)
     -> std::expected<void, std::string> {
   VkCommandBuffer cmd = command_buffers_[image_index];

@@ -1,3 +1,11 @@
+include(FetchContent)
+# TinyObjLoader for mesh import
+FetchContent_Declare(
+  tinyobjloader
+  GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
+  GIT_TAG        release
+)
+FetchContent_MakeAvailable(tinyobjloader)
 cmake_minimum_required(VERSION 3.28)
 project(Playground
   VERSION 0.1.0
@@ -87,6 +95,8 @@ add_executable(playground
   src/graphics/pipeline.cc
   src/graphics/shader_module.cc
   src/graphics/renderer.cc
+  src/graphics/mesh_loader.cc
+  src/graphics/buffer_util.cc
 )
 
 target_include_directories(playground PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -95,6 +105,7 @@ target_link_libraries(playground PRIVATE
   Vulkan::Vulkan
   glfw
   glm::glm
+  tinyobjloader
 )
 apply_project_warnings(playground)
 

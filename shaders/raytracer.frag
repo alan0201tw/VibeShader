@@ -12,10 +12,34 @@
 layout(location = 0) in vec2 frag_uv;
 layout(location = 0) out vec4 out_color;
 
+
 layout(push_constant) uniform PushConstants {
   float time;
   float aspect;
+  int triangle_count;
+  int _pad;
 } pc;
+
+struct MeshTriangle {
+  vec3 v0;
+  float pad0;
+  vec3 v1;
+  float pad1;
+  vec3 v2;
+  float pad2;
+  vec3 n0;
+  float pad3;
+  vec3 n1;
+  float pad4;
+  vec3 n2;
+  float pad5;
+};
+
+layout(set = 0, binding = 0) readonly buffer MeshBuffer {
+  MeshTriangle tris[];
+};
+
+
 
 const float kPi = 3.14159265359;
 const int kMaxBounces = 4;
@@ -39,11 +63,13 @@ struct Sphere {
   Material mat;
 };
 
+
 struct HitRecord {
   float t;
   vec3 pos;
   vec3 normal;
   int sphere_idx;
+  int tri_idx;
 };
 
 Sphere g_spheres[kSphereCount];
@@ -159,21 +185,56 @@ bool IntersectSphere(Ray ray, Sphere s, out float t_hit) {
   return true;
 }
 
+
+bool IntersectTriangle(Ray ray, MeshTriangle tri, out float t, out vec3 normal) {
+  vec3 v0v1 = tri.v1 - tri.v0;
+  vec3 v0v2 = tri.v2 - tri.v0;
+  vec3 pvec = cross(ray.dir, v0v2);
+  float det = dot(v0v1, pvec);
+  if (abs(det) < 1e-8) return false;
+  float invDet = 1.0 / det;
+  vec3 tvec = ray.origin - tri.v0;
+  float u = dot(tvec, pvec) * invDet;
+  if (u < 0.0 || u > 1.0) return false;
+  vec3 qvec = cross(tvec, v0v1);
+  float v = dot(ray.dir, qvec) * invDet;
+  if (v < 0.0 || u + v > 1.0) return false;
+  float tt = dot(v0v2, qvec) * invDet;
+  if (tt < 1e-4) return false;
+  t = tt;
+  normal = normalize(cross(v0v1, v0v2));
+  return true;
+}
+
 HitRecord TraceScene(Ray ray) {
   HitRecord rec;
   rec.t = 1e30;
   rec.sphere_idx = -1;
+  rec.tri_idx = -1;
 
+  // Spheres
   for (int i = 0; i < kSphereCount; ++i) {
     float t_hit;
     if (IntersectSphere(ray, g_spheres[i], t_hit) && t_hit < rec.t) {
       rec.t = t_hit;
       rec.sphere_idx = i;
+      rec.tri_idx = -1;
       rec.pos = ray.origin + ray.dir * t_hit;
       rec.normal = normalize(rec.pos - g_spheres[i].center);
     }
   }
-
+  // Triangles
+  for (int i = 0; i < pc.triangle_count; ++i) {
+    float t_hit;
+    vec3 n_hit;
+    if (IntersectTriangle(ray, tris[i], t_hit, n_hit) && t_hit < rec.t) {
+      rec.t = t_hit;
+      rec.tri_idx = i;
+      rec.sphere_idx = -1;
+      rec.pos = ray.origin + ray.dir * t_hit;
+      rec.normal = n_hit;
+    }
+  }
   return rec;
 }
 
@@ -232,12 +293,20 @@ vec3 Shade(Ray primary_ray) {
 
   for (int bounce = 0; bounce < kMaxBounces; ++bounce) {
     HitRecord rec = TraceScene(ray);
-    if (rec.sphere_idx < 0) {
+    if (rec.sphere_idx < 0 && rec.tri_idx < 0) {
       result += throughput * SkyColor(normalize(ray.dir));
       break;
     }
 
-    Material mat = g_spheres[rec.sphere_idx].mat;
+    Material mat;
+    if (rec.sphere_idx >= 0) {
+      mat = g_spheres[rec.sphere_idx].mat;
+    } else if (rec.tri_idx >= 0) {
+      mat.albedo = vec3(0.7, 0.7, 0.7); // Flat gray for mesh
+      mat.metallic = 0.0;
+      mat.roughness = 0.3;
+      mat.emission = 0.0;
+    }
 
     if (mat.emission > 0.0) {
       result += throughput * mat.albedo * mat.emission;
@@ -281,11 +350,11 @@ void main() {
   vec2 uv = frag_uv * 2.0 - 1.0;
   uv.x *= pc.aspect;
 
-  const float kFov = 0.82;
-  vec3 cam_pos = vec3(0.0, 0.72, 1.6);
-  vec3 cam_target = vec3(0.0, 0.08, -3.2);
+  const float kFov = 0.72;
+  vec3 cam_pos = vec3(0.0, 0.55, 5.4);
+  vec3 cam_target = vec3(0.0, 0.15, 0.0);
   vec3 cam_fwd = normalize(cam_target - cam_pos);
-  vec3 cam_right = normalize(cross(cam_fwd, vec3(0.0, 1.0, 0.0)));
+  vec3 cam_right = normalize(cross(cam_fwd, vec3(0.0, -1.0, 0.0)));
   vec3 cam_up = cross(cam_right, cam_fwd);
 
   Ray ray;

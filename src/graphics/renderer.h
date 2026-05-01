@@ -32,6 +32,9 @@ class Renderer {
   void RecordRenderPass(const Pipeline& pipeline, uint32_t image_index,
                         float time, float aspect_ratio);
 
+  void RecordRenderPass(const Pipeline& pipeline, uint32_t image_index,
+                        const void* push_constants, size_t push_constant_size, VkDescriptorSet mesh_descriptor_set);
+
   [[nodiscard]] auto EndFrameAndPresent(uint32_t image_index)
       -> std::expected<void, std::string>;
 

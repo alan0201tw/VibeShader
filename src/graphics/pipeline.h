@@ -20,6 +20,8 @@ class Pipeline {
                                    const std::string& fragment_shader_path)
       -> std::expected<Pipeline, std::string>;
 
+  [[nodiscard]] VkDescriptorSetLayout DescriptorSetLayout() const { return descriptor_set_layout_; }
+
   ~Pipeline();
 
   Pipeline(const Pipeline&) = delete;
@@ -43,6 +45,8 @@ class Pipeline {
   VkPipelineLayout layout_ = VK_NULL_HANDLE;
   VkRenderPass render_pass_ = VK_NULL_HANDLE;
   std::vector<VkFramebuffer> framebuffers_;
+
+  VkDescriptorSetLayout descriptor_set_layout_ = VK_NULL_HANDLE;
 };
 
 }  // namespace graphics

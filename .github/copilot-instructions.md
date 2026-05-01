@@ -79,23 +79,35 @@ Follow [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.htm
 
 ## Build and Test
 
-```bash
-# Configure (CMake ≥ 3.28, Ninja recommended)
-cmake -B build -G Ninja -DCMAKE_CXX_STANDARD=23 -DCMAKE_BUILD_TYPE=Release
 
-# Build
-cmake --build build
+## Project Overview & Documentation
 
-# Run tests
-ctest --test-dir build --output-on-failure
-```
+- See [../README.md](../README.md) for:
+	- Project description and prerequisites
+	- Build, run, and test commands
+	- Directory structure and shader workflow
+	- Dependency versions and links
 
-- Use **CMake** as the build system with a minimum of CMake 3.28
-- Prefer `target_*` commands over global `include_directories` / `link_libraries`
-- Use `FetchContent` or `vcpkg` for third-party dependencies
-- Write tests with **Google Test** or **Catch2**; place tests under `tests/`
+## Build and Test
+
+- Build system: **CMake** ≥ 3.28 (Ninja recommended)
+- Configure: `cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug` or `Release`
+- Build: `cmake --build build`
+- Run: `./build/playground`
+- Tests: `ctest --test-dir build --output-on-failure`
+- Shader compilation: [../cmake/CompileShaders.cmake](../cmake/CompileShaders.cmake) (GLSL → SPIR-V via `glslc`)
+- All dependencies fetched via CMake `FetchContent`
 - Enable warnings: `-Wall -Wextra -Wpedantic -Werror` (MSVC: `/W4 /WX`)
 - Enable sanitizers in debug builds: `-fsanitize=address,undefined`
+
+## Agent Guidance
+
+- Follow [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) and [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines)
+- Use 2-space indentation, 100-column limit for math-heavy code
+- Shader sources: `shaders/`, compiled to `build/shaders/` on build
+- Tests: place under `tests/`, use Google Test
+- See [../cmake/CompileShaders.cmake](../cmake/CompileShaders.cmake) for shader build rules
+- For architecture, math, and animation conventions, see sections above and [../README.md](../README.md)
 
 ## Conventions
 

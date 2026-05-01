@@ -1,4 +1,7 @@
+
 #include "graphics/pipeline.h"
+
+#include <print>
 
 #include "graphics/shader_module.h"
 #include "graphics/swapchain.h"
@@ -95,14 +98,35 @@ auto Pipeline::Create(const VulkanContext& context,
 
   // ── Pipeline layout ─────────────────────────────────────────────────────
   VkPushConstantRange push_constant_range{};
-  push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+  push_constant_range.stageFlags =
+      VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   push_constant_range.offset = 0;
-  push_constant_range.size = sizeof(float) * 2;  // time + aspect ratio
+  push_constant_range.size = 16;  // float, float, int, int padding
 
   VkPipelineLayoutCreateInfo layout_info{};
   layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   layout_info.pushConstantRangeCount = 1;
   layout_info.pPushConstantRanges = &push_constant_range;
+  layout_info.setLayoutCount = 1;
+  layout_info.pSetLayouts = &pl.descriptor_set_layout_;
+
+  // ── Descriptor set layout for mesh buffer ─────────────────────────────
+  VkDescriptorSetLayoutBinding mesh_binding{};
+  mesh_binding.binding = 0;
+  mesh_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  mesh_binding.descriptorCount = 1;
+  mesh_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  mesh_binding.pImmutableSamplers = nullptr;
+
+  VkDescriptorSetLayoutCreateInfo dsl_info{};
+  dsl_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  dsl_info.bindingCount = 1;
+  dsl_info.pBindings = &mesh_binding;
+  if (vkCreateDescriptorSetLayout(pl.device_, &dsl_info, nullptr, &pl.descriptor_set_layout_) != VK_SUCCESS) {
+    return std::unexpected("Failed to create descriptor set layout");
+  }
+
+  std::println("Descriptor set layout created: {}", static_cast<int>(reinterpret_cast<uintptr_t>(pl.descriptor_set_layout_)));
 
   if (vkCreatePipelineLayout(pl.device_, &layout_info, nullptr,
                              &pl.layout_) != VK_SUCCESS) {
@@ -212,6 +236,9 @@ Pipeline::~Pipeline() {
   if (render_pass_ != VK_NULL_HANDLE) {
     vkDestroyRenderPass(device_, render_pass_, nullptr);
   }
+  if (descriptor_set_layout_ != VK_NULL_HANDLE) {
+    vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
+  }
 }
 
 Pipeline::Pipeline(Pipeline&& other) noexcept
@@ -219,11 +246,13 @@ Pipeline::Pipeline(Pipeline&& other) noexcept
       pipeline_(other.pipeline_),
       layout_(other.layout_),
       render_pass_(other.render_pass_),
-      framebuffers_(std::move(other.framebuffers_)) {
+      framebuffers_(std::move(other.framebuffers_)),
+      descriptor_set_layout_(other.descriptor_set_layout_) {
   other.device_ = VK_NULL_HANDLE;
   other.pipeline_ = VK_NULL_HANDLE;
   other.layout_ = VK_NULL_HANDLE;
   other.render_pass_ = VK_NULL_HANDLE;
+  other.descriptor_set_layout_ = VK_NULL_HANDLE;
 }
 
 Pipeline& Pipeline::operator=(Pipeline&& other) noexcept {
@@ -231,18 +260,24 @@ Pipeline& Pipeline::operator=(Pipeline&& other) noexcept {
     for (auto fb : framebuffers_) {
       vkDestroyFramebuffer(device_, fb, nullptr);
     }
-    if (pipeline_ != VK_NULL_HANDLE)
+    if (pipeline_ != VK_NULL_HANDLE) {
       vkDestroyPipeline(device_, pipeline_, nullptr);
-    if (layout_ != VK_NULL_HANDLE)
+    }
+    if (layout_ != VK_NULL_HANDLE) {
       vkDestroyPipelineLayout(device_, layout_, nullptr);
-    if (render_pass_ != VK_NULL_HANDLE)
+    }
+    if (render_pass_ != VK_NULL_HANDLE) {
       vkDestroyRenderPass(device_, render_pass_, nullptr);
-
+    }
+    if (descriptor_set_layout_ != VK_NULL_HANDLE) {
+      vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
+    }
     device_ = other.device_;
     pipeline_ = other.pipeline_;
     layout_ = other.layout_;
     render_pass_ = other.render_pass_;
     framebuffers_ = std::move(other.framebuffers_);
+    descriptor_set_layout_ = other.descriptor_set_layout_;
 
     other.device_ = VK_NULL_HANDLE;
     other.pipeline_ = VK_NULL_HANDLE;
