@@ -31,7 +31,7 @@ auto Renderer::Create(const VulkanContext& context,
   }
 
   // ── Command buffers ────────────────────────────────────────────────────
-  uint32_t image_count = swapchain.ImageViews().size();
+  auto image_count = static_cast<uint32_t>(swapchain.ImageViews().size());
   renderer.command_buffers_.resize(image_count);
 
   VkCommandBufferAllocateInfo alloc_info{};
@@ -81,7 +81,9 @@ auto Renderer::Create(const VulkanContext& context,
 }
 
 Renderer::~Renderer() {
-  if (device_ == VK_NULL_HANDLE) return;
+  if (device_ == VK_NULL_HANDLE) {
+    return;
+  }
   vkDeviceWaitIdle(device_);
   for (auto fence : in_flight_fences_) {
     if (fence != VK_NULL_HANDLE) {
@@ -162,8 +164,8 @@ Renderer& Renderer::operator=(Renderer&& other) noexcept {
 
 auto Renderer::BeginFrame() -> std::expected<uint32_t, std::string> {
   // Get current frame's synchronization primitives
-  VkFence current_fence = in_flight_fences_[current_frame_index_];
-  VkSemaphore current_image_available = image_available_semaphores_[current_frame_index_];
+  auto current_fence = in_flight_fences_[current_frame_index_];
+  auto current_image_available = image_available_semaphores_[current_frame_index_];
 
   // Wait for previous frame to complete
   if (vkWaitForFences(device_, 1, &current_fence, VK_TRUE, UINT64_MAX) !=
@@ -175,8 +177,8 @@ auto Renderer::BeginFrame() -> std::expected<uint32_t, std::string> {
   }
 
   // Acquire next swapchain image
-  uint32_t image_index = 0;
-  VkResult result =
+  auto image_index = uint32_t{0};
+  auto result =
       vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX,
                             current_image_available, VK_NULL_HANDLE,
                             &image_index);

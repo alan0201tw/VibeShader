@@ -4,6 +4,8 @@
 #include "graphics/swapchain.h"
 #include "graphics/mesh_loader.h"
 #include "graphics/buffer_util.h"
+
+#include <algorithm>
 #include <span>
 
 #include <chrono>
@@ -30,7 +32,7 @@ int main() {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);  // Vulkan — no OpenGL context
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-  GLFWwindow* window = glfwCreateWindow(
+  auto* window = glfwCreateWindow(
       kWindowWidth, kWindowHeight, kWindowTitle, nullptr, nullptr);
   if (!window) {
     std::println(stderr, "Failed to create GLFW window");
@@ -60,7 +62,7 @@ int main() {
 
   // ── Load mesh and upload to GPU ───────────────────────────────────────
 
-  std::vector<graphics::MeshTriangle> mesh_tris = graphics::LoadMeshFromObj("assets/teapot.obj");
+  auto mesh_tris = graphics::LoadMeshFromObj("assets/teapot.obj");
   if (mesh_tris.empty()) {
     std::println(stderr, "Failed to load mesh or mesh is empty");
     glfwDestroyWindow(window);
@@ -69,17 +71,18 @@ int main() {
   }
 
   // --- Normalize and center mesh ---
-  glm::vec3 min_v(1e30f), max_v(-1e30f);
+  auto min_v = glm::vec3(1e30f);
+  auto max_v = glm::vec3(-1e30f);
   for (const auto& tri : mesh_tris) {
-    for (const glm::vec3& v : {tri.v0, tri.v1, tri.v2}) {
+    for (const auto& v : {tri.v0, tri.v1, tri.v2}) {
       min_v = glm::min(min_v, v);
       max_v = glm::max(max_v, v);
     }
   }
-  glm::vec3 center = 0.5f * (min_v + max_v);
-  glm::vec3 extent = max_v - min_v;
-  float max_extent = std::max({extent.x, extent.y, extent.z});
-  float scale = 2.0f / max_extent; // fit in [-1,1]
+  auto center = 0.5f * (min_v + max_v);
+  auto extent = max_v - min_v;
+  auto max_extent = std::max({extent.x, extent.y, extent.z});
+  auto scale = 2.0f / max_extent; // fit in [-1,1]
   for (auto& tri : mesh_tris) {
     tri.v0 = (tri.v0 - center) * scale;
     tri.v1 = (tri.v1 - center) * scale;
@@ -96,8 +99,8 @@ int main() {
     glfwTerminate();
     return EXIT_FAILURE;
   }
-  VkBuffer mesh_buffer = mesh_buffer_result->first;
-  VkDeviceMemory mesh_memory = mesh_buffer_result->second;
+  auto mesh_buffer = mesh_buffer_result->first;
+  auto mesh_memory = mesh_buffer_result->second;
 
   auto pipeline_result = graphics::Pipeline::Create(
       context, swapchain, SHADER_DIR "/fullscreen.vert.spv",
@@ -171,8 +174,8 @@ int main() {
   vkUpdateDescriptorSets(context.Device(), 1, &write, 0, nullptr);
 
   auto recreate_swapchain_resources = [&]() -> bool {
-    int framebuffer_width = 0;
-    int framebuffer_height = 0;
+    auto framebuffer_width = 0;
+    auto framebuffer_height = 0;
     glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
     while (framebuffer_width == 0 || framebuffer_height == 0) {
       glfwWaitEvents();
@@ -227,11 +230,11 @@ int main() {
 
     // Calculate elapsed time in seconds for shader animation
     auto current_time = std::chrono::high_resolution_clock::now();
-    float elapsed_seconds =
+    auto elapsed_seconds =
         std::chrono::duration<float>(current_time - start_time).count();
 
     // Calculate aspect ratio for screen coordinates in shader
-    float aspect_ratio =
+    auto aspect_ratio =
       static_cast<float>(swapchain.Extent().width) /
       static_cast<float>(swapchain.Extent().height);
 
@@ -248,7 +251,7 @@ int main() {
                    image_idx_result.error());
       continue;
     }
-    uint32_t image_index = *image_idx_result;
+    auto image_index = *image_idx_result;
 
     // Pass triangle count as push constant (time, aspect, triangle_count)
     struct PushConstants {

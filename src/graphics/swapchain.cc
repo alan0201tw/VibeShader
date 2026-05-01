@@ -25,7 +25,9 @@ auto ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats)
 auto ChoosePresentMode(const std::vector<VkPresentModeKHR>& modes)
     -> VkPresentModeKHR {
   for (const auto& mode : modes) {
-    if (mode == VK_PRESENT_MODE_MAILBOX_KHR) return mode;
+    if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+      return mode;
+    }
   }
   return VK_PRESENT_MODE_FIFO_KHR;
 }
@@ -35,8 +37,8 @@ auto ChooseExtent(const VkSurfaceCapabilitiesKHR& caps, GLFWwindow* window)
   if (caps.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
     return caps.currentExtent;
   }
-  int width = 0;
-  int height = 0;
+  auto width = 0;
+  auto height = 0;
   glfwGetFramebufferSize(window, &width, &height);
   VkExtent2D extent{static_cast<uint32_t>(width),
                     static_cast<uint32_t>(height)};
@@ -61,14 +63,14 @@ auto Swapchain::Create(const VulkanContext& context, GLFWwindow* window)
   VkSurfaceCapabilitiesKHR caps{};
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical, surface, &caps);
 
-  uint32_t format_count = 0;
+  auto format_count = uint32_t{0};
   vkGetPhysicalDeviceSurfaceFormatsKHR(physical, surface, &format_count,
                                        nullptr);
   std::vector<VkSurfaceFormatKHR> formats(format_count);
   vkGetPhysicalDeviceSurfaceFormatsKHR(physical, surface, &format_count,
                                        formats.data());
 
-  uint32_t mode_count = 0;
+  auto mode_count = uint32_t{0};
   vkGetPhysicalDeviceSurfacePresentModesKHR(physical, surface, &mode_count,
                                             nullptr);
   std::vector<VkPresentModeKHR> modes(mode_count);
@@ -83,7 +85,7 @@ auto Swapchain::Create(const VulkanContext& context, GLFWwindow* window)
   auto present_mode = ChoosePresentMode(modes);
   auto extent = ChooseExtent(caps, window);
 
-  uint32_t image_count = caps.minImageCount + 1;
+  auto image_count = caps.minImageCount + 1;
   if (caps.maxImageCount > 0 && image_count > caps.maxImageCount) {
     image_count = caps.maxImageCount;
   }

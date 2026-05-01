@@ -39,7 +39,8 @@ Follow [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.htm
 - Use `std::format` / `std::print` instead of `printf` or `iostream` formatting
 - Use `constexpr` and `consteval` aggressively for compile-time computation (especially math utilities)
 - Use concepts and `requires` clauses to constrain templates
-- Use structured bindings, `auto`, and range-based for loops idiomatically
+- Prefer `auto` for almost all local variables, iterators, and temporaries when the initializer makes the type obvious; keep explicit types for public APIs, arithmetic widths, and places where the spelled-out type improves clarity
+- Use structured bindings and range-based for loops idiomatically
 - Use `std::unique_ptr` for single ownership, `std::shared_ptr` only when shared ownership is truly needed
 - Use `std::array` over C-style arrays; `std::vector` for dynamic storage
 - Use scoped enums (`enum class`) exclusively
@@ -112,6 +113,7 @@ Follow [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.htm
 ## Conventions
 
 - Prefer value semantics; pass small types by value, larger types by `const&` or `std::span`
+- Default to `auto` for local variables in implementation files unless the explicit type carries important meaning
 - Hot-path code (inner render/simulation loops): minimize allocations, virtual calls, and cache misses — prefer SOA layouts for bulk data
 - Shader source files: `.vert`, `.frag`, `.comp`, `.glsl` (or `.hlsl`)  — keep under `shaders/`
 - Assets (models, textures, animations) live under `assets/`, never committed as large binaries without LFS

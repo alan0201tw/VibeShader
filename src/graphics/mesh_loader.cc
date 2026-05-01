@@ -28,7 +28,7 @@ void SetTriangleVertex(MeshTriangle& tri, int vertex_index,
 }  // namespace
 
 std::vector<MeshTriangle> LoadMeshFromObj(const std::string& filename) {
-  std::vector<MeshTriangle> tris;
+  auto tris = std::vector<MeshTriangle>{};
   tinyobj::ObjReader reader;
   if (!reader.ParseFromFile(filename)) {
     std::cerr << "Failed to load OBJ: " << filename << "\n";
@@ -37,12 +37,15 @@ std::vector<MeshTriangle> LoadMeshFromObj(const std::string& filename) {
   const auto& attrib = reader.GetAttrib();
   const auto& shapes = reader.GetShapes();
   for (const auto& shape : shapes) {
-    size_t idx_offset = 0;
-    for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) {
-      int fv = shape.mesh.num_face_vertices[f];
-      if (fv != 3) { idx_offset += fv; continue; } // Only triangles
+    auto idx_offset = size_t{0};
+    for (auto f = size_t{0}; f < shape.mesh.num_face_vertices.size(); f++) {
+      auto fv = shape.mesh.num_face_vertices[f];
+      if (fv != 3) {
+        idx_offset += fv;
+        continue;
+      }  // Only triangles
       MeshTriangle tri;
-      for (int v = 0; v < 3; v++) {
+      for (auto v = 0; v < 3; v++) {
         const auto idx = shape.mesh.indices[idx_offset + v];
         auto vx = attrib.vertices[3 * idx.vertex_index + 0];
         auto vy = attrib.vertices[3 * idx.vertex_index + 1];
@@ -64,4 +67,4 @@ std::vector<MeshTriangle> LoadMeshFromObj(const std::string& filename) {
   return tris;
 }
 
-} // namespace graphics
+}  // namespace graphics

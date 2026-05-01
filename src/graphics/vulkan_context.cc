@@ -53,7 +53,9 @@ auto CreateDebugMessenger(VkInstance instance)
 
 void DestroyDebugMessenger(VkInstance instance,
                            VkDebugUtilsMessengerEXT messenger) {
-  if (messenger == VK_NULL_HANDLE) return;
+  if (messenger == VK_NULL_HANDLE) {
+    return;
+  }
   auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
       vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
   if (func != nullptr) {
@@ -62,7 +64,7 @@ void DestroyDebugMessenger(VkInstance instance,
 }
 
 auto CheckValidationLayerSupport() -> bool {
-  uint32_t count = 0;
+  auto count = uint32_t{0};
   vkEnumerateInstanceLayerProperties(&count, nullptr);
   std::vector<VkLayerProperties> layers(count);
   vkEnumerateInstanceLayerProperties(&count, layers.data());
@@ -92,7 +94,7 @@ auto FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
   std::vector<VkQueueFamilyProperties> families(count);
   vkGetPhysicalDeviceQueueFamilyProperties(device, &count, families.data());
 
-  for (uint32_t i = 0; i < count; ++i) {
+  for (auto i = uint32_t{0}; i < count; ++i) {
     if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
       indices.graphics = i;
     }
@@ -102,7 +104,9 @@ auto FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
     if (present_support) {
       indices.present = i;
     }
-    if (indices.IsComplete()) break;
+    if (indices.IsComplete()) {
+      break;
+    }
   }
   return indices;
 }

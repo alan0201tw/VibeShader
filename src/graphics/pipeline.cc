@@ -20,11 +20,15 @@ auto Pipeline::Create(const VulkanContext& context,
   // ── Load shaders ────────────────────────────────────────────────────────
   auto vert_result =
       ShaderModule::CreateFromFile(pl.device_, vertex_shader_path);
-  if (!vert_result) return std::unexpected(vert_result.error());
+  if (!vert_result) {
+    return std::unexpected(vert_result.error());
+  }
 
   auto frag_result =
       ShaderModule::CreateFromFile(pl.device_, fragment_shader_path);
-  if (!frag_result) return std::unexpected(frag_result.error());
+  if (!frag_result) {
+    return std::unexpected(frag_result.error());
+  }
 
   VkPipelineShaderStageCreateInfo stages[2]{};
   stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

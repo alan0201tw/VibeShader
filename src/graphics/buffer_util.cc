@@ -5,17 +5,20 @@
 namespace graphics {
 
 namespace {
-uint32_t FindMemoryType(VkPhysicalDevice physical_device, uint32_t type_filter, VkMemoryPropertyFlags properties) {
+auto FindMemoryType(VkPhysicalDevice physical_device, uint32_t type_filter,
+                    VkMemoryPropertyFlags properties) -> uint32_t {
   VkPhysicalDeviceMemoryProperties mem_props;
   vkGetPhysicalDeviceMemoryProperties(physical_device, &mem_props);
-  for (uint32_t i = 0; i < mem_props.memoryTypeCount; i++) {
-    if ((type_filter & (1 << i)) && (mem_props.memoryTypes[i].propertyFlags & properties) == properties) {
+  for (auto i = uint32_t{0}; i < mem_props.memoryTypeCount; i++) {
+    if ((type_filter & (1 << i)) &&
+        (mem_props.memoryTypes[i].propertyFlags & properties) ==
+            properties) {
       return i;
     }
   }
   return UINT32_MAX;
 }
-}
+}  // namespace
 
 std::expected<std::pair<VkBuffer, VkDeviceMemory>, std::string>
 CreateDeviceBuffer(VkPhysicalDevice physical_device, VkDevice device,
@@ -28,18 +31,26 @@ CreateDeviceBuffer(VkPhysicalDevice physical_device, VkDevice device,
   buf_info.size = data.size_bytes();
   buf_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
   buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  if (vkCreateBuffer(device, &buf_info, nullptr, &staging_buffer) != VK_SUCCESS)
+  if (vkCreateBuffer(device, &buf_info, nullptr, &staging_buffer) !=
+      VK_SUCCESS) {
     return std::unexpected("Failed to create staging buffer");
+  }
   VkMemoryRequirements mem_req;
   vkGetBufferMemoryRequirements(device, staging_buffer, &mem_req);
   VkMemoryAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   alloc_info.allocationSize = mem_req.size;
-  alloc_info.memoryTypeIndex = FindMemoryType(physical_device, mem_req.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  if (alloc_info.memoryTypeIndex == UINT32_MAX)
+  alloc_info.memoryTypeIndex = FindMemoryType(
+      physical_device, mem_req.memoryTypeBits,
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  if (alloc_info.memoryTypeIndex == UINT32_MAX) {
     return std::unexpected("No suitable memory type for staging buffer");
-  if (vkAllocateMemory(device, &alloc_info, nullptr, &staging_memory) != VK_SUCCESS)
+  }
+  if (vkAllocateMemory(device, &alloc_info, nullptr, &staging_memory) !=
+      VK_SUCCESS) {
     return std::unexpected("Failed to allocate staging buffer memory");
+  }
   vkBindBufferMemory(device, staging_buffer, staging_memory, 0);
   void* mapped;
   vkMapMemory(device, staging_memory, 0, data.size_bytes(), 0, &mapped);
@@ -49,15 +60,22 @@ CreateDeviceBuffer(VkPhysicalDevice physical_device, VkDevice device,
   VkBuffer device_buffer;
   VkDeviceMemory device_memory;
   buf_info.usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-  if (vkCreateBuffer(device, &buf_info, nullptr, &device_buffer) != VK_SUCCESS)
+  if (vkCreateBuffer(device, &buf_info, nullptr, &device_buffer) !=
+      VK_SUCCESS) {
     return std::unexpected("Failed to create device buffer");
+  }
   vkGetBufferMemoryRequirements(device, device_buffer, &mem_req);
   alloc_info.allocationSize = mem_req.size;
-  alloc_info.memoryTypeIndex = FindMemoryType(physical_device, mem_req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  if (alloc_info.memoryTypeIndex == UINT32_MAX)
+  alloc_info.memoryTypeIndex = FindMemoryType(
+      physical_device, mem_req.memoryTypeBits,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  if (alloc_info.memoryTypeIndex == UINT32_MAX) {
     return std::unexpected("No suitable memory type for device buffer");
-  if (vkAllocateMemory(device, &alloc_info, nullptr, &device_memory) != VK_SUCCESS)
+  }
+  if (vkAllocateMemory(device, &alloc_info, nullptr, &device_memory) !=
+      VK_SUCCESS) {
     return std::unexpected("Failed to allocate device buffer memory");
+  }
   vkBindBufferMemory(device, device_buffer, device_memory, 0);
 
   // Copy staging to device
@@ -97,4 +115,4 @@ CreateDeviceBuffer(VkPhysicalDevice physical_device, VkDevice device,
   return std::make_pair(device_buffer, device_memory);
 }
 
-} // namespace graphics
+}  // namespace graphics
