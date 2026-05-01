@@ -185,6 +185,18 @@ bool IntersectSphere(Ray ray, Sphere s, out float t_hit) {
   return true;
 }
 
+vec3 MeshTranslation() {
+  float t = pc.time;
+  return vec3(0.85 * sin(t * 0.9), 0.18 * sin(t * 1.8), 0.45 * cos(t * 0.9));
+}
+
+MeshTriangle TranslateTriangle(MeshTriangle tri, vec3 offset) {
+  tri.v0 += offset;
+  tri.v1 += offset;
+  tri.v2 += offset;
+  return tri;
+}
+
 
 bool IntersectTriangle(Ray ray, MeshTriangle tri, out float t, out vec3 normal) {
   vec3 v0v1 = tri.v1 - tri.v0;
@@ -224,10 +236,12 @@ HitRecord TraceScene(Ray ray) {
     }
   }
   // Triangles
+  vec3 mesh_translation = MeshTranslation();
   for (int i = 0; i < pc.triangle_count; ++i) {
     float t_hit;
     vec3 n_hit;
-    if (IntersectTriangle(ray, tris[i], t_hit, n_hit) && t_hit < rec.t) {
+    MeshTriangle tri = TranslateTriangle(tris[i], mesh_translation);
+    if (IntersectTriangle(ray, tri, t_hit, n_hit) && t_hit < rec.t) {
       rec.t = t_hit;
       rec.tri_idx = i;
       rec.sphere_idx = -1;
